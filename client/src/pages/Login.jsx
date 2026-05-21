@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { loginUser } from "../services/authService.js";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -36,6 +37,14 @@ export default function Login() {
 
   useEffect(() => { setMounted(true); }, []);
 
+  useEffect(() => {
+  const token = localStorage.getItem("token");
+
+  if (token) {
+    navigate("/dashboard");
+  }
+}, []);
+
   const isValid = Object.keys(validate(form)).length === 0;
 
   const handleChange = (e) => {
@@ -61,10 +70,42 @@ export default function Login() {
     if (Object.keys(errs).length > 0) return;
 
     setSubmitting(true);
-    await new Promise((res) => setTimeout(res, 1500));
-    localStorage.setItem("token", "dummy-jwt-token");
-    localStorage.setItem("justLoggedIn", "true");
-    navigate("/dashboard");
+    try {
+      // Use real login API
+      const { token, user } = await loginUser({ email: form.email, password: form.password });
+      localStorage.setItem("token", token);
+      localStorage.setItem("fm_user", JSON.stringify(user));
+      localStorage.setItem("justLoggedIn", "true");
+      
+      // Check if there's pending user data from registration and merge it
+      const pendingUser = localStorage.getItem("fm_pending_user");
+      if (pendingUser) {
+        try {
+          const pendingData = JSON.parse(pendingUser);
+          // Keep the pending data in localStorage for the onboarding flow
+          // The user can complete onboarding later from the dashboard
+        } catch (e) {
+          console.error("Error parsing pending user data:", e);
+        }
+      }
+      
+      // Check if onboarding is complete - if not, redirect to onboarding
+      if (!user.onboardingComplete) {
+        const onboardingComplete = localStorage.getItem("fm_onboarding_complete");
+        if (!onboardingComplete) {
+          navigate("/app/onboarding");
+          return;
+        }
+      }
+      
+      navigate("/dashboard");
+    } catch (error) {
+      // Handle login error - show message to user
+      console.error("Login failed:", error);
+      setErrors({ ...errors, form: "Invalid email or password" });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const fieldClass = (id) => {
@@ -80,7 +121,7 @@ export default function Login() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
+      className="min-h-screen flex items-center justify-center px-4 pt-28 pb-10 prelative overflow-hidden"
       style={{ backgroundColor: "#0B0F19" }}
     >
       {/* Background layers */}
@@ -254,4 +295,5 @@ export default function Login() {
       </div>
     </div>
   );
+  
 }

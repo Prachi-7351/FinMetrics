@@ -1,65 +1,7 @@
-// import { Link } from "react-router-dom";
-
-// const Register = () => {
-//   return (
-//     <div className="min-h-screen flex items-center justify-center bg-gray-100">
-//       <div className="bg-white shadow-xl rounded-2xl p-8 w-full max-w-md">
-//         <h1 className="text-2xl font-bold text-center mb-6">
-//           Create FinMetrics Account
-//         </h1>
-
-//         <form className="space-y-4">
-//           <div>
-//             <label className="text-sm text-gray-600">Full Name</label>
-//             <input
-//               type="text"
-//               placeholder="Enter your name"
-//               className="w-full mt-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-//             />
-//           </div>
-
-//           <div>
-//             <label className="text-sm text-gray-600">Email</label>
-//             <input
-//               type="email"
-//               placeholder="Enter your email"
-//               className="w-full mt-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-//             />
-//           </div>
-
-//           <div>
-//             <label className="text-sm text-gray-600">Password</label>
-//             <input
-//               type="password"
-//               placeholder="Create a password"
-//               className="w-full mt-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-//             />
-//           </div>
-
-//           <button
-//             type="button"
-//             className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
-//           >
-//             Register
-//           </button>
-//         </form>
-
-//         <p className="text-sm text-center mt-6 text-gray-600">
-//           Already have an account?{" "}
-//           <Link to="/" className="text-blue-600 font-medium">
-//             Login
-//           </Link>
-//         </p>
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default Register;
-
-
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "../context/AuthContext.jsx";
+import { registerUser } from "../services/authService.js";
 
 const COUNTRIES = [
   "United States","United Kingdom","Canada","Australia","Germany","France",
@@ -202,12 +144,15 @@ function SectionLabel({ children }) {
 
 export default function Register() {
   const navigate = useNavigate();
+  const { login } = useAuth();
+
   const [form, setForm] = useState(initialForm);
   const [touched, setTouched] = useState({});
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [serverError, setServerError] = useState("");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
@@ -220,6 +165,7 @@ export default function Register() {
     const { id, value, type, checked } = e.target;
     const val = type === "checkbox" ? checked : value;
     setForm((prev) => ({ ...prev, [id]: val }));
+    setServerError("");
     if (touched[id]) {
       const newErrors = validate({ ...form, [id]: val });
       setErrors(newErrors);
@@ -241,13 +187,38 @@ export default function Register() {
     if (Object.keys(errs).length > 0) return;
 
     setSubmitting(true);
-    await new Promise((res) => setTimeout(res, 1500));
-    localStorage.setItem("token", "dummy-jwt-token");
-    navigate("/dashboard");
+    setServerError("");
+
+    try {
+      // Call the real API — this saves the user to MongoDB
+      const { token, user } = await registerUser({
+        fullName:    form.fullName,
+        email:       form.email,
+        password:    form.password,
+        companyName: form.companyName,
+        companyType: form.companyType,
+        role:        form.role,
+        revenueRange: form.revenueRange,
+        country:     form.country,
+      });
+
+      // Store token + user in AuthContext and localStorage
+      login(token, user);
+
+      // Redirect to onboarding
+      navigate("/app/onboarding");
+    } catch (err) {
+      const msg =
+        err?.response?.data?.error ||
+        err?.message ||
+        "Registration failed. Please try again.";
+      setServerError(msg);
+      setSubmitting(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-[#080c14] flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-[#080c14] flex items-center justify-center px-4 pt-28 pb-10 relative overflow-hidden">
       {/* Background */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[400px] bg-blue-600/5 blur-[120px] rounded-full" />
@@ -280,6 +251,13 @@ export default function Register() {
               <h1 className="text-2xl font-semibold text-slate-100 tracking-tight">Create Your Account</h1>
               <p className="mt-1.5 text-sm text-slate-500">Start managing financial risk intelligently.</p>
             </div>
+
+            {/* Server-side error banner */}
+            {serverError && (
+              <div className="mb-6 px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/30 text-sm text-red-400">
+                {serverError}
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} noValidate>
               {/* Personal Information */}
@@ -453,7 +431,7 @@ export default function Register() {
                     error={errors.role}
                     touched={touched.role}
                     placeholder="Select role"
-                    options={["Founder", "CFO", "Finance Manager", "Investor", "Other"]}
+                    options={["Admin", "Founder", "CFO", "Finance Manager", "Investor", "Other"]}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
