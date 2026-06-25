@@ -40,7 +40,7 @@ export default function Layout() {
     <div className="min-h-screen bg-[#0B0F19] text-white flex flex-col">
       <Navbar />
 
-      <main className="flex-1 max-w-7xl mx-auto w-full px-8 py-10">
+      <main className="flex-1 w-full">
         <Outlet />
       </main>
     </div>
