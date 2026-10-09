@@ -3,11 +3,14 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
-
+import stockRoutes from "./routes/stockRoutes.js";
+import newsRoutes from "./routes/newsRoutes.js";
 import authRoutes      from "./routes/authRoutes.js";
 import financialRoutes from "./routes/financialRoutes.js";
 import aiRoutes        from "./routes/aiRoutes.js";
 import stressRoutes    from "./routes/stressRoutes.js";   // ← NEW
+
+
 
 dotenv.config();
 
@@ -24,7 +27,9 @@ app.use(express.json({ limit: "10mb" }));
 app.use("/api/auth",      authRoutes);
 app.use("/api/financial", financialRoutes);
 app.use("/api/ai",        aiRoutes);
-app.use("/api/stress",    stressRoutes);              // ← NEW
+app.use("/api/stress",    stressRoutes);
+app.use("/api", stockRoutes);
+app.use("/api", newsRoutes);             // ← NEW
 
 // Health check
 app.get("/api/health", (_, res) => res.json({ status: "ok", time: new Date() }));
